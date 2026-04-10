@@ -27,6 +27,7 @@ export default function NewRationPage() {
   );
   const [mode, setMode] = useState<Mode>("manual");
   const [rationName, setRationName] = useState("");
+  const [rationPhase, setRationPhase] = useState<string>("");
 
   // Manuel mod: ingredient_id → kg
   const [manualItems, setManualItems] = useState<Map<number, number>>(new Map());
@@ -73,7 +74,7 @@ export default function NewRationPage() {
       const items = Array.from(manualItems.entries())
         .filter(([, kg]) => kg > 0)
         .map(([ingredient_id, fresh_weight_kg]) => ({ ingredient_id, fresh_weight_kg }));
-      createMutation.mutate({ name: rationName, animal_profile_id: selectedAnimalId, items });
+      createMutation.mutate({ name: rationName, animal_profile_id: selectedAnimalId, items, phase: rationPhase || null });
     } else {
       const constraints = Array.from(lpConstraints.entries()).map(([ingredient_id, c]) => ({
         ingredient_id,
@@ -84,6 +85,7 @@ export default function NewRationPage() {
         name: rationName,
         animal_profile_id: selectedAnimalId,
         ingredient_constraints: constraints,
+        phase: rationPhase || null,
       });
     }
   };
@@ -308,11 +310,35 @@ export default function NewRationPage() {
               <input
                 type="text"
                 required
-                placeholder="örn. Laktasyon Rasyonu #1"
+                placeholder="örn. Besi Başlangıç Rasyonu #1"
                 value={rationName}
                 onChange={(e) => setRationName(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Besi Dönemi
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { value: "başlangıç", label: "Başlangıç", cls: "border-blue-300 bg-blue-50 text-blue-700" },
+                  { value: "geliştirme", label: "Geliştirme", cls: "border-amber-300 bg-amber-50 text-amber-700" },
+                  { value: "bitirme", label: "Bitirme", cls: "border-purple-300 bg-purple-50 text-purple-700" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRationPhase(rationPhase === opt.value ? "" : opt.value)}
+                    className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      rationPhase === opt.value ? opt.cls : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">İsteğe bağlı — rasyona etiket ekler</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-4 text-sm space-y-1 text-gray-600">
               <div className="flex justify-between">
@@ -327,6 +353,12 @@ export default function NewRationPage() {
                 <span>Mod:</span>
                 <span className="font-medium">{mode === "lp" ? "LP Otomatik" : "Manuel"}</span>
               </div>
+              {rationPhase && (
+                <div className="flex justify-between">
+                  <span>Besi Dönemi:</span>
+                  <span className="font-medium capitalize">{rationPhase}</span>
+                </div>
+              )}
             </div>
             {error && (
               <p className="text-red-600 bg-red-50 px-3 py-2 rounded text-sm">⚠️ {error}</p>

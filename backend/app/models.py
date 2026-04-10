@@ -109,6 +109,7 @@ class Ration(Base):
     animal_profile_id: Mapped[int] = mapped_column(ForeignKey("animal_profiles.id"), nullable=False)
     optimization_mode: Mapped[str] = mapped_column(String(20), default="manual")
 
+    phase: Mapped[str | None] = mapped_column(String(20), nullable=True)  # başlangıç/geliştirme/bitirme
     total_dm_kg: Mapped[float | None] = mapped_column(Float)
     total_fresh_kg: Mapped[float | None] = mapped_column(Float)
     total_cost_tl: Mapped[float | None] = mapped_column(Float)

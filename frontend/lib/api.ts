@@ -81,12 +81,18 @@ export interface RationItem {
   ingredient_id: number;
   ingredient_name: string;
   ingredient_name_tr?: string;
+  category?: string;
   fresh_weight_kg: number;
   dm_weight_kg?: number;
   nel_mcal?: number;
   cp_g?: number;
   ca_g?: number;
   p_g?: number;
+  mg_g?: number;
+  na_g?: number;
+  k_g?: number;
+  ndf_g?: number;
+  nfc_g?: number;
   cost_tl?: number;
 }
 
@@ -95,6 +101,7 @@ export interface Ration {
   name: string;
   animal_profile_id: number;
   optimization_mode: string;
+  phase?: string | null;
   total_dm_kg?: number;
   total_fresh_kg?: number;
   total_cost_tl?: number;
@@ -108,6 +115,7 @@ export interface RationSummary {
   animal_profile_id: number;
   animal_name: string;
   optimization_mode: string;
+  phase?: string | null;
   total_dm_kg?: number;
   total_cost_tl?: number;
 }
@@ -143,17 +151,19 @@ export const rationsApi = {
   list: () => api.get<RationSummary[]>("/api/rations/").then((r) => r.data),
   get: (id: number) =>
     api.get<Ration>(`/api/rations/${id}`).then((r) => r.data),
-  create: (data: { name: string; animal_profile_id: number; items: { ingredient_id: number; fresh_weight_kg: number }[]; notes?: string }) =>
+  create: (data: { name: string; animal_profile_id: number; items: { ingredient_id: number; fresh_weight_kg: number }[]; notes?: string; phase?: string | null }) =>
     api.post<Ration>("/api/rations/", data).then((r) => r.data),
   optimize: (data: {
     name: string;
     animal_profile_id: number;
     ingredient_constraints: { ingredient_id: number; min_kg: number; max_kg?: number }[];
     notes?: string;
+    phase?: string | null;
   }) => api.post<Ration>("/api/rations/optimize", data).then((r) => r.data),
-  update: (id: number, data: { name: string; animal_profile_id: number; items: { ingredient_id: number; fresh_weight_kg: number }[]; notes?: string }) =>
+  update: (id: number, data: { name: string; animal_profile_id: number; items: { ingredient_id: number; fresh_weight_kg: number }[]; notes?: string; phase?: string | null }) =>
     api.put<Ration>(`/api/rations/${id}`, data).then((r) => r.data),
   delete: (id: number) => api.delete(`/api/rations/${id}`),
+  copy: (id: number) => api.post<Ration>(`/api/rations/${id}/copy`).then((r) => r.data),
   pdfUrl: (id: number) => `${API_BASE}/api/rations/${id}/pdf`,
   excelUrl: (id: number) => `${API_BASE}/api/rations/${id}/excel`,
   mixingList: (id: number, herdSize = 1) =>

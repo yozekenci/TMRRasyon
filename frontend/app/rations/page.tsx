@@ -73,9 +73,20 @@ export default function RationsPage() {
                     {r.total_cost_tl != null ? `${r.total_cost_tl.toFixed(2)} ₺` : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={r.optimization_mode === "lp" ? "blue" : "gray"}>
-                      {r.optimization_mode === "lp" ? "LP" : "Manuel"}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant={r.optimization_mode === "lp" ? "blue" : "gray"}>
+                        {r.optimization_mode === "lp" ? "LP" : "Manuel"}
+                      </Badge>
+                      {r.phase && (
+                        <Badge variant={
+                          r.phase === "başlangıç" ? "sky"
+                          : r.phase === "geliştirme" ? "amber"
+                          : "purple"
+                        }>
+                          {r.phase === "başlangıç" ? "Başlangıç" : r.phase === "geliştirme" ? "Geliştirme" : "Bitirme"}
+                        </Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">

@@ -21,6 +21,11 @@ import {
   DollarSign,
   TrendingDown,
   Zap,
+  Copy,
+  Leaf,
+  FlaskConical,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 import {
@@ -53,6 +58,10 @@ export default function RationDetailPage({
 
   // IOFC state
   const [meatPrice, setMeatPrice] = useState(280.0);  // TL/kg canlı ağırlık kazanımı
+
+  // Fiyat duyarlılık state
+  const [showPriceSensitivity, setShowPriceSensitivity] = useState(false);
+  const [priceOverrides, setPriceOverrides] = useState<Map<number, number>>(new Map());
 
   const { data: ration, isLoading } = useQuery({
     queryKey: ["rations", rationId],
@@ -88,6 +97,14 @@ export default function RationDetailPage({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rations"] });
       router.push("/rations");
+    },
+  });
+
+  const copyMutation = useMutation({
+    mutationFn: () => rationsApi.copy(rationId),
+    onSuccess: (newRation) => {
+      qc.invalidateQueries({ queryKey: ["rations"] });
+      router.push(`/rations/${newRation.id}`);
     },
   });
 
@@ -164,6 +181,32 @@ export default function RationDetailPage({
 
   const defaultHerd = animal?.herd_size ?? 1;
 
+  // ── Rumen dengesi hesapları ────────────────────────────────────────
+  const totalDmKg = ration.total_dm_kg ?? 0;
+  const totalNdfG = ration.items.reduce((s, i) => s + (i.ndf_g ?? 0), 0);
+  const totalNfcG = ration.items.reduce((s, i) => s + (i.nfc_g ?? 0), 0);
+  const forageFreshKg = ration.items
+    .filter((i) => i.category === "roughage")
+    .reduce((s, i) => s + i.fresh_weight_kg, 0);
+  const totalFreshKg = ration.total_fresh_kg ?? 1;
+  const ndfPctDm = totalDmKg > 0 ? (totalNdfG / (totalDmKg * 1000)) * 100 : 0;
+  const nfcPctDm = totalDmKg > 0 ? (totalNfcG / (totalDmKg * 1000)) * 100 : 0;
+  const foragePct = totalFreshKg > 0 ? (forageFreshKg / totalFreshKg) * 100 : 0;
+
+  // ── Premix ihtiyacı hesapları ─────────────────────────────────────
+  const totalCaG = ration.items.reduce((s, i) => s + (i.ca_g ?? 0), 0);
+  const totalPG = ration.items.reduce((s, i) => s + (i.p_g ?? 0), 0);
+  const totalMgG = ration.items.reduce((s, i) => s + (i.mg_g ?? 0), 0);
+  const totalNaG = ration.items.reduce((s, i) => s + (i.na_g ?? 0), 0);
+
+  // ── Fiyat duyarlılık ─────────────────────────────────────────────
+  const adjustedCostDay = ration.items.reduce((s, item) => {
+    const override = priceOverrides.get(item.ingredient_id);
+    const price = override !== undefined ? override : (item.cost_tl ?? 0) / item.fresh_weight_kg;
+    return s + item.fresh_weight_kg * price;
+  }, 0);
+  const costDelta = adjustedCostDay - (ration.total_cost_tl ?? 0);
+
   // ── IOFC calculations ──────────────────────────────────────────────
   const feedCostDay = ration.total_cost_tl ?? 0;
   const adg = animal?.target_adg_kg ?? 0;
@@ -195,6 +238,9 @@ export default function RationDetailPage({
         >
           {ration.optimization_mode === "lp" ? "LP Otomatik" : "Manuel"}
         </span>
+        {ration.phase && (
+          <PhaseBadge phase={ration.phase} />
+        )}
       </div>
 
       {/* Summary cards */}
@@ -246,6 +292,14 @@ export default function RationDetailPage({
             </button>
           </>
         )}
+        <button
+          onClick={() => copyMutation.mutate()}
+          disabled={copyMutation.isPending}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        >
+          <Copy className="w-4 h-4" />
+          {copyMutation.isPending ? "Kopyalanıyor…" : "Kopyala"}
+        </button>
         <button
           onClick={() => deleteMutation.mutate(rationId)}
           disabled={deleteMutation.isPending}
@@ -457,6 +511,166 @@ export default function RationDetailPage({
         </div>
       )}
 
+      {/* Rumen Dengesi */}
+      {totalDmKg > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-5">
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+            <Leaf className="w-4 h-4 text-green-500" />
+            <h2 className="font-semibold text-gray-700 text-sm">Rumen Dengesi</h2>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <RumenRow
+              label="NDF % KM"
+              value={ndfPctDm}
+              unit="%"
+              thresholds={{ low: 25, ok: 28, high: 38, danger: 45 }}
+              lowLabel="Asidoz riski"
+              okLabel="İdeal"
+              highLabel="İyi"
+              dangerLabel="Fazla lif"
+            />
+            <RumenRow
+              label="NFC % KM"
+              value={nfcPctDm}
+              unit="%"
+              thresholds={{ low: 20, ok: 25, high: 42, danger: 99 }}
+              lowLabel="Düşük"
+              okLabel="İdeal"
+              highLabel="SARA riski"
+              dangerLabel="SARA riski"
+            />
+            <RumenRow
+              label="Kaba Yem Oranı"
+              value={foragePct}
+              unit="% taze"
+              thresholds={{ low: 20, ok: 30, high: 65, danger: 80 }}
+              lowLabel="Asidoz riski"
+              okLabel="İdeal"
+              highLabel="İyi"
+              dangerLabel="Fazla kaba"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Premix Builder */}
+      {requirements && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-5">
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
+            <FlaskConical className="w-4 h-4 text-purple-500" />
+            <h2 className="font-semibold text-gray-700 text-sm">Mineral Analizi & Premix Önerisi</h2>
+          </div>
+          <div className="px-5 py-4">
+            <table className="w-full text-sm mb-3">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                  <th className="pb-2 text-left">Mineral</th>
+                  <th className="pb-2 text-right">Rasyon (g)</th>
+                  <th className="pb-2 text-right">NRC İhtiyaç (g)</th>
+                  <th className="pb-2 text-right">Fark</th>
+                  <th className="pb-2 text-left pl-4">Öneri</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                <MineralRow label="Kalsiyum (Ca)" actual={totalCaG} req={requirements.ca_g_day}
+                  supplement="Kireçtaşı" supAmount={1 / 3.80} supUnit="kg/kg açık" />
+                <MineralRow label="Fosfor (P)" actual={totalPG} req={requirements.p_g_day}
+                  supplement="Dikalsiyum fosfat" supAmount={1 / 1.80} supUnit="kg/kg açık" />
+                <MineralRow label="Magnezyum (Mg)" actual={totalMgG} req={requirements.mg_g_day}
+                  supplement="Magnezyum oksit" supAmount={1 / 6.0} supUnit="kg/kg açık" />
+                <MineralRow label="Sodyum (Na)" actual={totalNaG} req={requirements.na_g_day}
+                  supplement="Tuz (NaCl)" supAmount={1 / 3.93} supUnit="kg/kg açık" />
+              </tbody>
+            </table>
+            <p className="text-[11px] text-gray-400">
+              Öneri miktarları yaklaşık değerdir. Gerçek analiz değerlerine göre formüle edin.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Fiyat Duyarlılık Analizi */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-5">
+        <button
+          className="w-full flex items-center justify-between px-5 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+          onClick={() => {
+            if (!showPriceSensitivity) {
+              const m = new Map<number, number>();
+              ration.items.forEach((item) => {
+                const basePrice = item.fresh_weight_kg > 0
+                  ? (item.cost_tl ?? 0) / item.fresh_weight_kg
+                  : 0;
+                m.set(item.ingredient_id, basePrice);
+              });
+              setPriceOverrides(m);
+            }
+            setShowPriceSensitivity((v) => !v);
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-gray-400" />
+            <h2 className="font-semibold text-gray-700 text-sm">Fiyat Duyarlılık Analizi</h2>
+          </div>
+          {showPriceSensitivity ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        </button>
+
+        {showPriceSensitivity && (
+          <div className="px-5 py-4">
+            <p className="text-xs text-gray-500 mb-3">
+              Fiyatları değiştirin — toplam maliyet anlık güncellenir.
+            </p>
+            <div className="space-y-2 mb-4">
+              {ration.items.map((item) => {
+                const base = item.fresh_weight_kg > 0
+                  ? (item.cost_tl ?? 0) / item.fresh_weight_kg
+                  : 0;
+                const current = priceOverrides.get(item.ingredient_id) ?? base;
+                const newCost = item.fresh_weight_kg * current;
+                return (
+                  <div key={item.ingredient_id} className="flex items-center gap-3">
+                    <span className="flex-1 text-sm text-gray-700 truncate">
+                      {item.ingredient_name_tr || item.ingredient_name}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={current.toFixed(2)}
+                        onChange={(e) =>
+                          setPriceOverrides((prev) => new Map(prev).set(item.ingredient_id, Number(e.target.value)))
+                        }
+                        className="w-20 text-right border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-green-500"
+                      />
+                      <span className="text-xs text-gray-400 w-8">₺/kg</span>
+                    </div>
+                    <span className="text-xs text-gray-600 tabular-nums w-16 text-right">
+                      {newCost.toFixed(2)} ₺
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-700">Yeni Günlük Maliyet</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400 tabular-nums">
+                  Baz: {(ration.total_cost_tl ?? 0).toFixed(2)} ₺
+                </span>
+                <span className={`text-sm font-bold tabular-nums ${costDelta > 0 ? "text-red-600" : costDelta < 0 ? "text-emerald-600" : "text-gray-700"}`}>
+                  {adjustedCostDay.toFixed(2)} ₺
+                </span>
+                {costDelta !== 0 && (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${costDelta > 0 ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"}`}>
+                    {costDelta > 0 ? "+" : ""}{costDelta.toFixed(2)} ₺ ({((costDelta / (ration.total_cost_tl || 1)) * 100).toFixed(1)}%)
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Gölge Fiyatları — sadece LP rasyonlar */}
       {shadowPrices && shadowPrices.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-5">
@@ -647,6 +861,123 @@ function IofcCard({
       <dd className={`font-bold text-2xl tabular-nums ${valueColor}`}>{value}</dd>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
+  );
+}
+
+function PhaseBadge({ phase }: { phase: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    başlangıç: { label: "Başlangıç", cls: "bg-blue-100 text-blue-700" },
+    geliştirme: { label: "Geliştirme", cls: "bg-amber-100 text-amber-700" },
+    bitirme: { label: "Bitirme", cls: "bg-purple-100 text-purple-700" },
+  };
+  const d = map[phase] ?? { label: phase, cls: "bg-gray-100 text-gray-600" };
+  return <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${d.cls}`}>{d.label}</span>;
+}
+
+function RumenRow({
+  label,
+  value,
+  unit,
+  thresholds,
+  lowLabel,
+  okLabel,
+  highLabel,
+  dangerLabel,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  thresholds: { low: number; ok: number; high: number; danger: number };
+  lowLabel: string;
+  okLabel: string;
+  highLabel: string;
+  dangerLabel: string;
+}) {
+  let statusLabel: string;
+  let cls: string;
+  let barCls: string;
+
+  if (value < thresholds.low) {
+    statusLabel = lowLabel;
+    cls = "text-red-600 bg-red-50";
+    barCls = "bg-red-400";
+  } else if (value < thresholds.ok) {
+    statusLabel = lowLabel === okLabel ? okLabel : lowLabel;
+    cls = "text-amber-600 bg-amber-50";
+    barCls = "bg-amber-400";
+  } else if (value <= thresholds.high) {
+    statusLabel = okLabel;
+    cls = "text-green-600 bg-green-50";
+    barCls = "bg-green-500";
+  } else if (value <= thresholds.danger) {
+    statusLabel = highLabel;
+    cls = "text-orange-600 bg-orange-50";
+    barCls = "bg-orange-400";
+  } else {
+    statusLabel = dangerLabel;
+    cls = "text-red-600 bg-red-50";
+    barCls = "bg-red-400";
+  }
+
+  const barPct = Math.min(Math.round((value / (thresholds.high * 1.3)) * 100), 100);
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-32 text-sm text-gray-600 flex-shrink-0">{label}</span>
+      <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-500 ${barCls}`} style={{ width: `${barPct}%` }} />
+      </div>
+      <span className="w-20 text-right text-xs text-gray-500 tabular-nums flex-shrink-0">
+        {value.toFixed(1)}{unit}
+      </span>
+      <span className={`w-28 inline-flex items-center justify-center text-[11px] font-semibold px-2 py-1 rounded-md flex-shrink-0 ${cls}`}>
+        {statusLabel}
+      </span>
+    </div>
+  );
+}
+
+function MineralRow({
+  label,
+  actual,
+  req,
+  supplement,
+  supAmount,
+  supUnit,
+}: {
+  label: string;
+  actual: number;
+  req: number;
+  supplement: string;
+  supAmount: number;
+  supUnit: string;
+}) {
+  const deficit = req - actual;
+  const hasDeficit = deficit > 0.5;
+  const hasSurplus = deficit < -0.5;
+
+  return (
+    <tr className="hover:bg-gray-50/80">
+      <td className="py-2.5 text-sm text-gray-700">{label}</td>
+      <td className="py-2.5 text-right text-sm tabular-nums">{actual.toFixed(1)}</td>
+      <td className="py-2.5 text-right text-sm tabular-nums text-gray-500">{req.toFixed(1)}</td>
+      <td className="py-2.5 text-right">
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded tabular-nums ${
+          hasDeficit ? "bg-red-50 text-red-700" : hasSurplus ? "bg-orange-50 text-orange-700" : "bg-green-50 text-green-700"
+        }`}>
+          {deficit > 0 ? "-" : deficit < 0 ? "+" : ""}{Math.abs(deficit).toFixed(1)} g
+        </span>
+      </td>
+      <td className="py-2.5 pl-4 text-xs text-gray-500">
+        {hasDeficit ? (
+          <span className="text-amber-700">
+            +{(deficit * supAmount / 1000).toFixed(3)} kg/gün {supplement}
+          </span>
+        ) : (
+          <span className="text-green-600">Yeterli</span>
+        )}
+      </td>
+    </tr>
   );
 }
 

@@ -23,6 +23,7 @@ class RationCreate(BaseModel):
     animal_profile_id: int
     items: list[RationItemIn]
     notes: str | None = None
+    phase: str | None = None  # başlangıç / geliştirme / bitirme
 
 
 class RationItemOut(BaseModel):
@@ -30,12 +31,18 @@ class RationItemOut(BaseModel):
     ingredient_id: int
     ingredient_name: str
     ingredient_name_tr: str | None
+    category: str | None
     fresh_weight_kg: float
     dm_weight_kg: float | None
     nel_mcal: float | None
     cp_g: float | None
     ca_g: float | None
     p_g: float | None
+    mg_g: float | None
+    na_g: float | None
+    k_g: float | None
+    ndf_g: float | None
+    nfc_g: float | None
     cost_tl: float | None
 
     model_config = {"from_attributes": True}
@@ -46,6 +53,7 @@ class RationOut(BaseModel):
     name: str
     animal_profile_id: int
     optimization_mode: str
+    phase: str | None
     total_dm_kg: float | None
     total_fresh_kg: float | None
     total_cost_tl: float | None
@@ -61,6 +69,7 @@ class RationSummary(BaseModel):
     animal_profile_id: int
     animal_name: str
     optimization_mode: str
+    phase: str | None
     total_dm_kg: float | None
     total_cost_tl: float | None
 
@@ -78,6 +87,7 @@ class LPOptimizeRequest(BaseModel):
     animal_profile_id: int
     ingredient_constraints: list[LPIngredientConstraint]
     notes: str | None = None
+    phase: str | None = None
 
 
 # ─── Yardımcı Fonksiyonlar ────────────────────────────────────────────────────
@@ -85,9 +95,14 @@ class LPOptimizeRequest(BaseModel):
 def _compute_item_nutrients(item: RationItem, ing: FeedIngredient) -> RationItemOut:
     dm_kg = item.fresh_weight_kg * (ing.dm_pct or 100) / 100
     nel = dm_kg * (ing.nel_mcal_kg or 0)
-    cp_g = dm_kg * (ing.cp_pct or 0) * 10  # % → g/kg → g
+    cp_g = dm_kg * (ing.cp_pct or 0) * 10   # % of DM → g
     ca_g = dm_kg * (ing.ca_pct or 0) * 10
     p_g = dm_kg * (ing.p_pct or 0) * 10
+    mg_g = dm_kg * (ing.mg_pct or 0) * 10
+    na_g = dm_kg * (ing.na_pct or 0) * 10
+    k_g = dm_kg * (ing.k_pct or 0) * 10
+    ndf_g = dm_kg * (ing.ndf_pct or 0) * 10
+    nfc_g = dm_kg * (ing.nfc_pct or 0) * 10
     cost = item.fresh_weight_kg * (ing.price_per_kg_tl or 0)
 
     return RationItemOut(
@@ -95,12 +110,18 @@ def _compute_item_nutrients(item: RationItem, ing: FeedIngredient) -> RationItem
         ingredient_id=item.ingredient_id,
         ingredient_name=ing.name,
         ingredient_name_tr=ing.name_tr,
+        category=ing.category,
         fresh_weight_kg=item.fresh_weight_kg,
         dm_weight_kg=round(dm_kg, 3),
         nel_mcal=round(nel, 2) if ing.nel_mcal_kg else None,
         cp_g=round(cp_g, 1) if ing.cp_pct else None,
         ca_g=round(ca_g, 1) if ing.ca_pct else None,
         p_g=round(p_g, 1) if ing.p_pct else None,
+        mg_g=round(mg_g, 1) if ing.mg_pct else None,
+        na_g=round(na_g, 1) if ing.na_pct else None,
+        k_g=round(k_g, 1) if ing.k_pct else None,
+        ndf_g=round(ndf_g, 1) if ing.ndf_pct else None,
+        nfc_g=round(nfc_g, 1) if ing.nfc_pct else None,
         cost_tl=round(cost, 2) if ing.price_per_kg_tl else None,
     )
 
@@ -115,6 +136,7 @@ def _build_ration_out(ration: Ration) -> RationOut:
         name=ration.name,
         animal_profile_id=ration.animal_profile_id,
         optimization_mode=ration.optimization_mode,
+        phase=ration.phase,
         total_dm_kg=ration.total_dm_kg,
         total_fresh_kg=ration.total_fresh_kg,
         total_cost_tl=ration.total_cost_tl,
@@ -124,7 +146,8 @@ def _build_ration_out(ration: Ration) -> RationOut:
 
 
 def _save_ration(db: Session, name: str, animal_id: int, mode: str,
-                  items: list[tuple[FeedIngredient, float]], notes: str | None) -> Ration:
+                  items: list[tuple[FeedIngredient, float]], notes: str | None,
+                  phase: str | None = None) -> Ration:
     """Ration + items kaydet, toplamları hesapla."""
     total_dm = 0.0
     total_fresh = 0.0
@@ -134,6 +157,7 @@ def _save_ration(db: Session, name: str, animal_id: int, mode: str,
         name=name,
         animal_profile_id=animal_id,
         optimization_mode=mode,
+        phase=phase,
         notes=notes,
     )
     db.add(ration)
@@ -173,6 +197,7 @@ def list_rations(db: Session = Depends(get_db)):
             animal_profile_id=r.animal_profile_id,
             animal_name=r.animal_profile.name,
             optimization_mode=r.optimization_mode,
+            phase=r.phase,
             total_dm_kg=r.total_dm_kg,
             total_cost_tl=r.total_cost_tl,
         ))
@@ -200,7 +225,7 @@ def create_ration(data: RationCreate, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail=f"Hammadde {item.ingredient_id} bulunamadı")
         ing_items.append((ing, item.fresh_weight_kg))
 
-    ration = _save_ration(db, data.name, data.animal_profile_id, "manual", ing_items, data.notes)
+    ration = _save_ration(db, data.name, data.animal_profile_id, "manual", ing_items, data.notes, data.phase)
     return _build_ration_out(ration)
 
 
@@ -247,7 +272,7 @@ def optimize(data: LPOptimizeRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail=str(e))
 
     ing_items = [(db.get(FeedIngredient, ing_id), kg) for ing_id, kg in result.items()]
-    ration = _save_ration(db, data.name, data.animal_profile_id, "lp", ing_items, data.notes)
+    ration = _save_ration(db, data.name, data.animal_profile_id, "lp", ing_items, data.notes, data.phase)
     return _build_ration_out(ration)
 
 
@@ -262,10 +287,11 @@ def update_ration(ration_id: int, data: RationCreate, db: Session = Depends(get_
     if not animal:
         raise HTTPException(status_code=404, detail="Hayvan profili bulunamadı")
 
-    # İsim ve not güncelle
+    # İsim, not ve dönem güncelle
     ration.name = data.name
     ration.animal_profile_id = data.animal_profile_id
     ration.notes = data.notes
+    ration.phase = data.phase
 
     # Mevcut kalemleri sil
     for item in list(ration.items):
@@ -305,6 +331,25 @@ def delete_ration(ration_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Rasyon bulunamadı")
     db.delete(ration)
     db.commit()
+
+
+@router.post("/{ration_id}/copy", response_model=RationOut, status_code=201)
+def copy_ration(ration_id: int, db: Session = Depends(get_db)):
+    """Rasyonu kopyala — aynı hayvan, aynı kalemler, '(kopya)' eki ile yeni isim."""
+    ration = db.get(Ration, ration_id)
+    if not ration:
+        raise HTTPException(status_code=404, detail="Rasyon bulunamadı")
+    ing_items = [(item.ingredient, item.fresh_weight_kg) for item in ration.items]
+    new_ration = _save_ration(
+        db,
+        name=f"{ration.name} (kopya)",
+        animal_id=ration.animal_profile_id,
+        mode=ration.optimization_mode,
+        items=ing_items,
+        notes=ration.notes,
+        phase=ration.phase,
+    )
+    return _build_ration_out(new_ration)
 
 
 @router.get("/{ration_id}/pdf")
