@@ -1,0 +1,30 @@
+app = "tmrrasyon-backend"
+primary_region = "ams"
+
+[build]
+
+[env]
+  DATABASE_URL = "sqlite:////data/tmr.db"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[mounts]]
+  source = "tmr_data"
+  destination = "/data"
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/api/health"
