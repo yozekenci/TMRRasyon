@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { animalsApi, AnimalProfile } from "@/lib/api";
 import { Plus, Trash2, FlaskConical, ChevronRight, Beef, Users } from "lucide-react";
+import { Badge, PageHeader, EmptyState, buttonVariants } from "@/components/ui";
 
 export default function AnimalsPage() {
   const qc = useQueryClient();
@@ -19,22 +20,16 @@ export default function AnimalsPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Hayvan Profilleri</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isLoading ? "…" : `${animals?.length ?? 0} profil kayıtlı`}
-          </p>
-        </div>
-        <Link
-          href="/animals/new"
-          className="inline-flex items-center gap-2 bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-800 transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni Profil
-        </Link>
-      </div>
+      <PageHeader
+        title="Hayvan Profilleri"
+        subtitle={isLoading ? "…" : `${animals?.length ?? 0} profil kayıtlı`}
+        action={
+          <Link href="/animals/new" className={buttonVariants("primary")}>
+            <Plus className="w-4 h-4" />
+            Yeni Profil
+          </Link>
+        }
+      />
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -53,19 +48,16 @@ export default function AnimalsPage() {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 py-16 text-center">
-          <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Users className="w-7 h-7 text-gray-400" />
-          </div>
-          <p className="text-gray-500 text-sm mb-5 font-medium">Henüz hayvan profili eklenmedi.</p>
-          <Link
-            href="/animals/new"
-            className="inline-flex items-center gap-2 bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-green-800 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            İlk profili oluştur
-          </Link>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="Henüz hayvan profili eklenmedi."
+          action={
+            <Link href="/animals/new" className={buttonVariants("primary")}>
+              <Plus className="w-4 h-4" />
+              İlk profili oluştur
+            </Link>
+          }
+        />
       )}
     </div>
   );
@@ -88,9 +80,7 @@ function AnimalCard({
           </div>
           <div>
             <p className="font-semibold text-gray-900 text-[15px] leading-tight">{animal.name}</p>
-            <span className="inline-block text-[11px] font-medium mt-0.5 px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
-              Besi Sığırı
-            </span>
+            <Badge variant="orange" className="mt-0.5">Besi Sığırı</Badge>
           </div>
         </div>
       </div>
