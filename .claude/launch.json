@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Backend (FastAPI)",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "cd backend && /opt/homebrew/bin/python3.11 -m pip install -q -e . && /opt/homebrew/bin/python3.11 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"],
+      "port": 8000
+    },
+    {
+      "name": "Frontend (Next.js)",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "cd frontend && PATH=/usr/local/bin:$PATH /usr/local/bin/node /usr/local/bin/npm run dev"],
+      "port": 3000
+    }
+  ]
+}
