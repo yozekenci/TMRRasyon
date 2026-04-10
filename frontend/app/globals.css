@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary:        #15803d;
+  --color-primary-dark:   #14532d;
+  --color-primary-light:  #dcfce7;
+  --color-bg:             #f4f6f4;
+  --color-card:           #ffffff;
+  --color-border:         #e5e7eb;
+  --color-text-primary:   #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted:     #9ca3af;
+  --color-success:        #16a34a;
+  --color-warning:        #d97706;
+  --color-error:          #dc2626;
+  --color-info:           #0369a1;
+}
+
 :root {
   /* Brand */
   --color-primary:        #15803d; /* green-700 */

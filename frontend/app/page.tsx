@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Plus,
 } from "lucide-react";
+import { Badge, PageHeader, EmptyState, buttonVariants } from "@/components/ui";
 import {
   BarChart,
   Bar,
@@ -33,13 +34,10 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          NRC 2023 tabanlı TMR rasyon formülasyon sistemi
-        </p>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        subtitle="NRC 2023 tabanlı TMR rasyon formülasyon sistemi"
+      />
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -165,19 +163,17 @@ export default function Dashboard() {
             </tbody>
           </table>
         ) : (
-          <div className="py-14 text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <ClipboardList className="w-6 h-6 text-gray-400" />
-            </div>
-            <p className="text-gray-500 text-sm mb-4">Henüz rasyon oluşturulmadı.</p>
-            <Link
-              href="/rations/new"
-              className="inline-flex items-center gap-2 bg-green-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-green-800 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              İlk rasyonu oluştur
-            </Link>
-          </div>
+          <EmptyState
+            contained={false}
+            icon={ClipboardList}
+            title="Henüz rasyon oluşturulmadı."
+            action={
+              <Link href="/rations/new" className={buttonVariants("primary")}>
+                <Plus className="w-4 h-4" />
+                İlk rasyonu oluştur
+              </Link>
+            }
+          />
         )}
       </div>
     </div>
@@ -220,20 +216,3 @@ function StatCard({
   );
 }
 
-function Badge({
-  variant,
-  children,
-}: {
-  variant: "blue" | "gray";
-  children: React.ReactNode;
-}) {
-  const cls =
-    variant === "blue"
-      ? "bg-sky-100 text-sky-700"
-      : "bg-gray-100 text-gray-600";
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${cls}`}>
-      {children}
-    </span>
-  );
-}

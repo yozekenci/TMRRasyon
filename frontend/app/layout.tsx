@@ -26,7 +26,7 @@ export default function RootLayout({
         <Providers>
           <div className="flex h-full">
             <Sidebar />
-            <main className="flex-1 overflow-auto bg-[#f4f6f4]">
+            <main className="flex-1 overflow-auto bg-[var(--color-bg)]">
               <div className="max-w-5xl mx-auto px-6 py-7">{children}</div>
             </main>
           </div>
