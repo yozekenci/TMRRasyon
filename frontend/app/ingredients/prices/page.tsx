@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ingredientsApi, api } from "@/lib/api";
+import { ingredientsApi, Ingredient, api } from "@/lib/api";
 import Link from "next/link";
 import { ArrowLeft, Save, RefreshCw, CheckCircle2 } from "lucide-react";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  roughage:    "Kaba Yem",
+  concentrate: "Kesif Yem",
+  byproduct:   "Yan Ürün",
+  fat:         "Yağ",
+  mineral:     "Mineral",
+  additive:    "Katkı",
+  vitamin:     "Vitamin",
+};
 
 export default function BulkPricePage() {
   const qc = useQueryClient();
@@ -14,12 +24,17 @@ export default function BulkPricePage() {
   const { data: ingredients, isLoading } = useQuery({
     queryKey: ["ingredients", "", ""],
     queryFn: () => ingredientsApi.list(),
-    onSuccess: (data) => {
-      const init: Record<number, string> = {};
-      data.forEach((i) => { init[i.id] = String(i.price_per_kg_tl ?? ""); });
-      setPrices(init);
-    },
-  } as Parameters<typeof useQuery>[0]);
+  });
+
+  // Initialize price inputs when data first loads
+  useEffect(() => {
+    if (!ingredients) return;
+    const init: Record<number, string> = {};
+    ingredients.forEach((i: Ingredient) => {
+      init[i.id] = String(i.price_per_kg_tl ?? "");
+    });
+    setPrices(init);
+  }, [ingredients]);
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -35,22 +50,12 @@ export default function BulkPricePage() {
     },
   });
 
-  const CATEGORY_LABELS: Record<string, string> = {
-    roughage: "Kaba Yem",
-    concentrate: "Kesif Yem",
-    byproduct: "Yan Ürün",
-    fat: "Yağ",
-    mineral: "Mineral",
-    additive: "Katkı",
-    vitamin: "Vitamin",
-  };
-
-  const grouped = ingredients?.reduce<Record<string, typeof ingredients>>((acc, i) => {
+  const grouped = (ingredients ?? []).reduce<Record<string, Ingredient[]>>((acc, i) => {
     const cat = i.category;
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(i);
     return acc;
-  }, {}) ?? {};
+  }, {});
 
   return (
     <div className="max-w-3xl">
@@ -65,7 +70,7 @@ export default function BulkPricePage() {
         <button
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 disabled:opacity-50 transition-colors"
         >
           {saved ? (
             <><CheckCircle2 className="w-4 h-4" /> Kaydedildi!</>
@@ -78,12 +83,14 @@ export default function BulkPricePage() {
       </div>
 
       <p className="text-sm text-gray-500 mb-5">
-        Fiyatları düzenleyip <strong>Tümünü Kaydet</strong>'e basın. Boş bırakılan alanlar güncellenmez.
+        Fiyatları düzenleyip <strong>Tümünü Kaydet</strong>&apos;e basın. Boş bırakılan alanlar güncellenmez.
       </p>
 
       {isLoading ? (
         <div className="space-y-2">
-          {[1,2,3,4,5].map(i => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}
+          {[1,2,3,4,5].map((i) => (
+            <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+          ))}
         </div>
       ) : (
         <div className="space-y-6">

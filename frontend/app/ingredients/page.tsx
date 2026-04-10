@@ -4,30 +4,31 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ingredientsApi, Ingredient } from "@/lib/api";
 import { Search, Plus, X, Database, ChevronDown } from "lucide-react";
+import { Badge, BadgeVariant, PageHeader, EmptyState, Button, buttonVariants } from "@/components/ui";
 
 const CATEGORIES: Record<string, string> = {
-  roughage:   "Kaba Yem",
-  concentrate:"Kesif Yem",
-  byproduct:  "Yan Ürün",
-  mineral:    "Mineral",
-  fat:        "Yağ",
-  vitamin:    "Vitamin",
-  additive:   "Katkı",
+  roughage:    "Kaba Yem",
+  concentrate: "Kesif Yem",
+  byproduct:   "Yan Ürün",
+  mineral:     "Mineral",
+  fat:         "Yağ",
+  vitamin:     "Vitamin",
+  additive:    "Katkı",
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  roughage:    "bg-green-100 text-green-700",
-  concentrate: "bg-amber-100 text-amber-700",
-  byproduct:   "bg-purple-100 text-purple-700",
-  mineral:     "bg-sky-100 text-sky-700",
-  fat:         "bg-orange-100 text-orange-700",
-  vitamin:     "bg-pink-100 text-pink-700",
-  additive:    "bg-gray-100 text-gray-600",
+const CATEGORY_VARIANT: Record<string, BadgeVariant> = {
+  roughage:    "green",
+  concentrate: "amber",
+  byproduct:   "purple",
+  mineral:     "sky",
+  fat:         "orange",
+  vitamin:     "pink",
+  additive:    "gray",
 };
 
 export default function IngredientsPage() {
-  const [search, setSearch]         = useState("");
-  const [category, setCategory]     = useState("");
+  const [search, setSearch]           = useState("");
+  const [category, setCategory]       = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
 
   const { data: ingredients, isLoading } = useQuery({
@@ -41,22 +42,19 @@ export default function IngredientsPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Yem Veritabanı</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isLoading ? "…" : `${ingredients?.length ?? 0} hammadde`}
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="inline-flex items-center gap-2 bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-800 transition-colors shadow-sm"
-        >
-          {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showAddForm ? "İptal" : "Hammadde Ekle"}
-        </button>
-      </div>
+      <PageHeader
+        title="Yem Veritabanı"
+        subtitle={isLoading ? "…" : `${ingredients?.length ?? 0} hammadde`}
+        action={
+          <Button
+            variant={showAddForm ? "secondary" : "primary"}
+            onClick={() => setShowAddForm(!showAddForm)}
+          >
+            {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showAddForm ? "İptal" : "Hammadde Ekle"}
+          </Button>
+        }
+      />
 
       {/* Add form */}
       {showAddForm && (
@@ -128,11 +126,9 @@ export default function IngredientsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-md ${
-                      CATEGORY_COLORS[ing.category] ?? "bg-gray-100 text-gray-600"
-                    }`}>
+                    <Badge variant={CATEGORY_VARIANT[ing.category] ?? "gray"}>
                       {CATEGORIES[ing.category] ?? ing.category}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-4 py-3 text-right text-gray-600 tabular-nums">{ing.dm_pct ?? "—"}</td>
                   <td className="px-4 py-3 text-right text-gray-600 tabular-nums">{ing.nel_mcal_kg ?? "—"}</td>
@@ -144,15 +140,9 @@ export default function IngredientsPage() {
                     {ing.price_per_kg_tl ?? "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-md ${
-                        ing.source === "builtin"
-                          ? "bg-sky-100 text-sky-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
+                    <Badge variant={ing.source === "builtin" ? "blue" : "green"}>
                       {ing.source === "builtin" ? "NRC" : "Kullanıcı"}
-                    </span>
+                    </Badge>
                   </td>
                 </tr>
               ))}
@@ -160,12 +150,11 @@ export default function IngredientsPage() {
           </table>
 
           {(!ingredients || ingredients.length === 0) && (
-            <div className="py-12 text-center">
-              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <Database className="w-6 h-6 text-gray-400" />
-              </div>
-              <p className="text-gray-500 text-sm">Hammadde bulunamadı.</p>
-            </div>
+            <EmptyState
+              contained={false}
+              icon={Database}
+              title="Hammadde bulunamadı."
+            />
           )}
         </div>
       )}
@@ -191,21 +180,26 @@ function AddIngredientForm({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    mutation.mutate(form as any);
+    mutation.mutate(form as Ingredient);
   };
 
-  const fields = [
-    { k: "name",           label: "Ad (EN)",     required: true, type: "text"   },
-    { k: "name_tr",        label: "Ad (TR)",      type: "text"   },
-    { k: "dm_pct",         label: "KM %",         type: "number" },
-    { k: "nel_mcal_kg",    label: "NEL Mcal/kg",  type: "number" },
-    { k: "cp_pct",         label: "HP %",         type: "number" },
-    { k: "rup_pct",        label: "RUP % (HP)",   type: "number" },
-    { k: "ndf_pct",        label: "NDF %",        type: "number" },
-    { k: "adf_pct",        label: "ADF %",        type: "number" },
-    { k: "ca_pct",         label: "Ca %",         type: "number" },
-    { k: "p_pct",          label: "P %",          type: "number" },
-    { k: "price_per_kg_tl",label: "Fiyat TL/kg",  type: "number" },
+  const fields: Array<{
+    k: keyof Ingredient;
+    label: string;
+    required?: boolean;
+    type: string;
+  }> = [
+    { k: "name",            label: "Ad (EN)",     required: true, type: "text"   },
+    { k: "name_tr",         label: "Ad (TR)",      type: "text"   },
+    { k: "dm_pct",          label: "KM %",         type: "number" },
+    { k: "nel_mcal_kg",     label: "NEL Mcal/kg",  type: "number" },
+    { k: "cp_pct",          label: "HP %",         type: "number" },
+    { k: "rup_pct",         label: "RUP % (HP)",   type: "number" },
+    { k: "ndf_pct",         label: "NDF %",        type: "number" },
+    { k: "adf_pct",         label: "ADF %",        type: "number" },
+    { k: "ca_pct",          label: "Ca %",         type: "number" },
+    { k: "p_pct",           label: "P %",          type: "number" },
+    { k: "price_per_kg_tl", label: "Fiyat TL/kg",  type: "number" },
   ];
 
   return (
@@ -237,10 +231,10 @@ function AddIngredientForm({ onClose }: { onClose: () => void }) {
                 type={type}
                 required={required}
                 step="any"
-                value={(form as any)[k] ?? ""}
+                value={(form[k] ?? "") as string | number}
                 onChange={(e) =>
                   set(
-                    k as keyof Ingredient,
+                    k,
                     type === "number" ? Number(e.target.value) : e.target.value
                   )
                 }
@@ -266,17 +260,13 @@ function AddIngredientForm({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex gap-2 pt-2 border-t border-gray-100">
-          <button
-            type="submit"
-            disabled={mutation.isPending}
-            className="inline-flex items-center gap-2 bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-800 disabled:opacity-50 transition-colors"
-          >
+          <Button type="submit" isLoading={mutation.isPending}>
             {mutation.isPending ? "Kaydediliyor…" : "Kaydet"}
-          </button>
+          </Button>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+            className={buttonVariants("secondary")}
           >
             İptal
           </button>
